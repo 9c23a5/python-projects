@@ -13,11 +13,13 @@ from tkinter import *
 
 # Sample window, 100x100 with only red background
 
-w1 = Tk()
-w1.overrideredirect(True)
-w1.geometry("100x100+600+100")
-# w.wm_attributes("-toolwindow", True)
-w1.resizable(0,0)
-w1.configure(bg="red")
+def createWindow(x:str, y:str):
+    window = Tk()
+    window.overrideredirect(True)
+    window.geometry(f"100x100+{x}+{y}")
+    window.resizable(0,0)
+    window.configure(bg="red")
+    return window
 
+w1 = createWindow("950", "300")
 w1.mainloop()
