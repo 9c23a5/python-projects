@@ -1,4 +1,5 @@
 from tkinter import *
+from tkinter.tix import ButtonBox
 
 # size = 60
 # windows = {}
@@ -21,5 +22,19 @@ def createWindow(x:str, y:str):
     window.configure(bg="red")
     return window
 
-w1 = createWindow("950", "300")
-w1.mainloop()
+# w1 = createWindow("950", "300")
+# w1.mainloop()
+
+def mycallback():
+    if root["bg"] == "red":
+        root["bg"] = "blue"
+    else:
+        root["bg"] = "red"
+
+root = Tk()
+root.geometry("200x200")
+root["bg"] = "blue"
+root.resizable(0,0)
+root.button = Button(text="Button!", command=mycallback)
+root.button.pack()
+root.mainloop()
