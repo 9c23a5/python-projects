@@ -62,6 +62,7 @@ PORT = 9999
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 s.bind((HOST, PORT))
 s.listen()
+print(f"Listening on {HOST}:{PORT}")
 
 # Main loop: Get any connection and start reversheshell(s)
 
