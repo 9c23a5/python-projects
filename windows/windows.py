@@ -107,5 +107,3 @@ root.button = Button(text="Start!", command=mycallback)
 root.button.pack()
 
 root.mainloop()
-while True:
-    input("Press Enter to start!")
