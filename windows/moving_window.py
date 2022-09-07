@@ -30,7 +30,7 @@ def contour_coords(filename):
         for i in range(0, len(cnt)):
             x = cnt[i][0][0]
             y = cnt[i][0][1]
-            print(f"Debug: {x=} {y=}")
+            #print(f"Debug: {x=} {y=}")
             coordsX.append(str(x))
             coordsY.append(str(y))
             
@@ -57,18 +57,21 @@ def moving(root):
 def move_coords(root, coordsX, coordsY):
     while True:
         for i in range(0, len(coordsX)):
-            x = coordsX[i]
-            y = coordsY[i]
+            x = int(coordsX[i])
+            y = int(coordsY[i])
             try:
                 x2 = int(coordsX[i+1])
                 y2 = int(coordsY[i+1])
             except IndexError:
                 x2 = int(coordsX[0])
                 y2 = int(coordsY[0])
-            distance = abs(sqrt((x2-int(x))^2 + (y2-int(y))^2))
-            print(f"{x=} {y=}\n{x2=} {y2=}\n{distance=}")
-            root.geometry(f"200x200+{x}+{y}")
-            sleep(0.01)
+            distance = abs(sqrt((x2-x)^2 + (y2-y)^2))
+
+            print(f"{x=} {y=} || {x2=} {y2=} || {distance=}", end="", flush=True)
+            print("\r", end="", flush=True)
+
+            root.geometry(f"200x200+{str(x-100)}+{str(y-100)}")
+            sleep(0.001)
 
 
 def mycallback():
