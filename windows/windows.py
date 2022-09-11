@@ -27,11 +27,12 @@ gradientSteps = [
 
 num_windows = 5
 window_size = 100
-image_file="heart.png"
+image_file="cat.png"
 squares=3
 fps = 144
 durationGradient = 3
 min_smooth_distance = 1.4142135623730951
+
 
 
 #######################################
@@ -47,6 +48,7 @@ def createWindow(x:str, y:str):
     window.resizable(0,0)
     window.configure(bg="red")
     return window
+
 
 
 #######################################
@@ -66,9 +68,11 @@ def generate_coords(filename):
     coords = []
 
     image = cv2.imread(filename)
+    w, h, c = image.shape
     img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    ret, im = cv2.threshold(img_gray, 100, 255, cv2.THRESH_BINARY_INV)
-    #debug_show_image(im)
+    debug_show_image(img_gray)
+    ret, im = cv2.threshold(img_gray, 1, 255, cv2.THRESH_BINARY)
+    debug_show_image(im)
     contours, hierarchy  = cv2.findContours(im, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     for cnt in contours:
@@ -78,15 +82,17 @@ def generate_coords(filename):
             #print(f"Debug: {x=} {y=}")
             coords.append([x, y])
             #coords.append({'x' : x, 'y' : y}) #list of dicts
-            
-    return coords
+    
+    size = [w, h]
+    return coords, size
 
 
-def move_coords(root, coords, start):
+def move_coords(root, coords, start, image_size, screen_size):
+    diff = [int((screen_size[0]/2)-(image_size[0]/2)+(window_size/2)), int((screen_size[1]/2)-(image_size[1]/2)+(window_size/2))]
     while True:
         for xy in coords[start:]:
-            x = xy[0]
-            y = xy[1]
+            x = xy[0]+diff[0]
+            y = xy[1]+diff[1]
 
             try:
                 index_2ndxy = coords.index(xy)+1
@@ -95,8 +101,8 @@ def move_coords(root, coords, start):
                 index_2ndxy = 0
                 xy2 = coords[index_2ndxy]
 
-            x2 = xy2[0]
-            y2 = xy2[1]
+            x2 = xy2[0]+diff[0]
+            y2 = xy2[1]+diff[1]
 
             distance = sqrt(pow((x2-x), 2) + pow((y2-y), 2))
 
@@ -117,10 +123,10 @@ def half_point(x1, y1, x2, y2):
     half_y = mean((y1+y2)/2)
     return int(half_x), int(half_y)
 
+
 def smooth(coords, limit):
     while True:
         halfs_created = 0
-        lastOne = False
         for i in range(0, len(coords)):
             xy1 = coords[i]
 
@@ -135,15 +141,15 @@ def smooth(coords, limit):
 
             if distance > limit:
                 halfs_created =+ 1
-                print("Higher distance (%s) found", distance)
                 new_x, new_y = half_point(x1, y1, x2, y2)
-                print(f"{i=} ||{x1=}, {y1=} || {new_x=}, {new_y=} || {x2=}, {y2=}")
+                #print(f"{i=} ||{x1=}, {y1=} || {new_x=}, {new_y=} || {x2=}, {y2=}")
                 coords.insert(i+1, [new_x, new_y])
             
 
         if halfs_created == 0:
             print("No more smoothing")
             return coords
+
 
 
 #######################################
@@ -193,12 +199,15 @@ def mycallback():
     root.button["state"] = "disabled"
 
     colorList = generateGradient(gradientSteps, fps, durationGradient)
-    coords = generate_coords(image_file)
+    coords, image_size = generate_coords(image_file)
     coords = smooth(coords, min_smooth_distance)
+    screen_size = [root.winfo_screenwidth(), root.winfo_screenheight()]
 
     print("Starting thread...")
     print(f"[DEBUG] {len(colorList)=}")
     print(f"[DEBUG] {len(coords)=}")
+    print(f"[DEBUG] {screen_size=} {image_size=}")
+
     coords_step = floor(len(coords)/(num_windows))
     starting_index = []
     for i in range(coords_step, len(coords), coords_step):
@@ -206,7 +215,7 @@ def mycallback():
         starting_index.append(i)
 
     threading.Thread(target=colorChanger, args=(colorList,fps), daemon=True).start()
-    threading.Thread(target=move_coords, args=(root, coords, starting_index[0])).start()
+    threading.Thread(target=move_coords, args=(root, coords, starting_index[0], image_size, screen_size)).start()
     
 
 
