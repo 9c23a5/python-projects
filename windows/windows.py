@@ -120,12 +120,14 @@ def half_point(x1, y1, x2, y2):
 def smooth(coords, limit):
     while True:
         halfs_created = 0
+        lastOne = False
         for i in range(0, len(coords)):
             xy1 = coords[i]
+
             try:
                 xy2 = coords[i+1]
-            except:
-                break
+            except IndexError:
+                xy2 = coords[0]
             
             x1 = xy1[0]; y1 = xy1[1]; x2 = xy2[0]; y2 = xy2[1]
 
