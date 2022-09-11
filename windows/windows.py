@@ -1,8 +1,11 @@
+from math import sqrt, floor
 import threading
 from time import sleep
 from tkinter import *
 from tkinter.tix import ButtonBox
 from colour import Color
+import cv2
+
 
 gradientSteps = [
     # https://i.imgur.com/Gy9fUR8.png
@@ -14,22 +17,25 @@ gradientSteps = [
     "#fa86f2",    # Light Fuchsia Pink
 ]
 
+
+#######################################
+#
+# Default settings
+#
+#######################################
+
+num_windows = 5
+image_file="heart.png"
 squares=3
 fps = 144
 durationGradient = 3
 
-# size = 60
-# windows = {}
 
-# for y in range(0, 1000, 10):
-#     windows[str(y)] = Tk()
-#     windows[str(y)].geometry(f"{size}x{size}+0+{y}")
-#     windows[str(y)].wm_attributes('-fullscreen', 'True')
-
-# for i in windows:
-#     windows[i].mainloop()
-
-# Sample window, 100x100 with only red background
+#######################################
+#
+# Threading functions
+#
+#######################################
 
 def createWindow(x:str, y:str):
     window = Tk()
@@ -40,10 +46,73 @@ def createWindow(x:str, y:str):
     return window
 
 
+#######################################
+#
+# Movement functions
+#
+#######################################
 
-# w1 = createWindow("950", "300")
-# w1.mainloop()
+def debug_show_image(cv_image):
+    cv2.imshow('image',cv_image)
+    c = cv2.waitKey()
+    if c >= 0 : return -1
+    return 0
 
+
+def generate_coords(filename):
+    coords = []
+
+    image = cv2.imread(filename)
+    img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    ret, im = cv2.threshold(img_gray, 100, 255, cv2.THRESH_BINARY_INV)
+    #debug_show_image(im)
+    contours, hierarchy  = cv2.findContours(im, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for cnt in contours:
+        for i in range(0, len(cnt)):
+            x = cnt[i][0][0]
+            y = cnt[i][0][1]
+            #print(f"Debug: {x=} {y=}")
+            coords.append([x, y])
+            #coords.append({'x' : x, 'y' : y}) #list of dicts
+            
+    return coords
+
+
+def move_coords(root, coords, start):
+    while True:
+        for xy in coords[start:]:
+            x = xy[0]
+            y = xy[1]
+
+            try:
+                index_2ndxy = coords.index(xy)+1
+                xy2 = coords[index_2ndxy]
+            except IndexError:
+                index_2ndxy = 0
+                xy2 = coords[index_2ndxy]
+
+            x2 = xy2[0]
+            y2 = xy2[1]
+
+            distance = abs(sqrt(pow((x2-x), 2) + pow((y2-y), 2)))
+
+            print(f"{x=} {y=} || {x2=} {y2=} || {coords.index(xy)=} {start=} || {distance=}", end="", flush=True)
+            print("\r", end="", flush=True)
+
+            root.geometry(f"200x200+{str(x-100)}+{str(y-100)}")
+
+            if start != 0 and coords.index(xy) == len(coords)-1:
+                start = 0
+            
+            sleep(0.001)
+
+
+#######################################
+#
+# Color functions
+#
+#######################################
 
 def generateGradient(mainColors, fps, duration):
     gradient = []
@@ -52,8 +121,6 @@ def generateGradient(mainColors, fps, duration):
     framerate = 1/fps
 
     exclude = (numGradients - 1) * 2
-    
-    # S = ( ( D / F ) + E ) / G
 
     steps = round(( ( duration / framerate) + exclude ) / numGradients)
 
@@ -73,7 +140,6 @@ def generateGradient(mainColors, fps, duration):
     return gradient
         
 
-
 def colorChanger(colors, fps):
     framerate = 1/fps
     print(f"Thread launched with {fps=}/{framerate=}")
@@ -86,15 +152,24 @@ def colorChanger(colors, fps):
 
 
 def mycallback():
-    print("Starting color change...")
     root.button["state"] = "disabled"
 
     colorList = generateGradient(gradientSteps, fps, durationGradient)
+    coords = generate_coords(image_file)
 
     print("Starting thread...")
-    print(f"{len(colorList)=}")
+    print(f"[DEBUG] {len(colorList)=}")
+    print(f"[DEBUG] {len(coords)=}")
+    coords_step = floor(len(coords)/(num_windows))
+    starting_index = []
+    for i in range(coords_step, len(coords), coords_step):
+        print(f"[DEBUG] {i=}, {coords[i]=}")
+        starting_index.append(i)
 
     threading.Thread(target=colorChanger, args=(colorList,fps), daemon=True).start()
+    threading.Thread(target=move_coords, args=(root, coords, starting_index[0])).start()
+    
+
 
 
 root = Tk()

@@ -1,6 +1,7 @@
 from cmath import sqrt
 from dis import dis
 from math import dist
+import random
 import threading
 from time import sleep
 from tkinter import *
@@ -17,8 +18,7 @@ def debug_show_image(cv_image):
     return 0
 
 def contour_coords(filename):
-    coordsX = []
-    coordsY = []
+    coords = []
 
     image = cv2.imread(filename)
     img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -31,10 +31,9 @@ def contour_coords(filename):
             x = cnt[i][0][0]
             y = cnt[i][0][1]
             #print(f"Debug: {x=} {y=}")
-            coordsX.append(str(x))
-            coordsY.append(str(y))
+            coords.append([x, y])
             
-    return coordsX, coordsY
+    return coords
 
 def moving(root):
     init_x = root.winfo_x()
@@ -54,36 +53,48 @@ def moving(root):
             sleep(0.0001)
 
 
-def move_coords(root, coordsX, coordsY):
+def move_coords(root, coords, start):
     while True:
-        for i in range(0, len(coordsX)):
-            x = int(coordsX[i])
-            y = int(coordsY[i])
+        for xy in coords[start:]:
+            x = xy[0]
+            y = xy[1]
+
             try:
-                x2 = int(coordsX[i+1])
-                y2 = int(coordsY[i+1])
+                index_2ndxy = coords.index(xy)+1
+                xy2 = coords[index_2ndxy]
             except IndexError:
-                x2 = int(coordsX[0])
-                y2 = int(coordsY[0])
+                index_2ndxy = 0
+                xy2 = coords[index_2ndxy]
+
+            x2 = xy2[0]
+            y2 = xy2[1]
+
             distance = abs(sqrt((x2-x)^2 + (y2-y)^2))
 
-            print(f"{x=} {y=} || {x2=} {y2=} || {distance=}", end="", flush=True)
+            print(f"{x=} {y=} || {x2=} {y2=} || {coords.index(xy)=} {start=} || {distance=}", end="", flush=True)
             print("\r", end="", flush=True)
 
             root.geometry(f"200x200+{str(x-100)}+{str(y-100)}")
+
+            if start != 0 and coords.index(xy) == len(coords)-1:
+                start = 0
+            
             sleep(0.001)
 
 
 def mycallback():
     print("Starting move...")
     root.button["state"] = "disabled"
+
+    randI = random.randrange(len(coords))
+    print(f"Starting on index {randI=}")
     
     #threading.Thread(target=moving, args=(root,), daemon=True).start()
-    threading.Thread(target=move_coords, args=(root,coordsX, coordsY), daemon=True).start()
+    threading.Thread(target=move_coords, args=(root, coords, randI), daemon=True).start()
 
 
 print("Getting coordinates from file...")
-coordsX, coordsY = contour_coords(image_file)
+coords = contour_coords(image_file)
 
 root = Tk()
 #root.overrideredirect(True)
