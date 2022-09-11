@@ -1,6 +1,4 @@
-from cmath import sqrt
-from dis import dis
-from math import dist
+from math import sqrt
 import random
 import threading
 from time import sleep

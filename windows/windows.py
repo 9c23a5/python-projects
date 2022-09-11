@@ -1,8 +1,9 @@
 from math import sqrt, floor
+from numpy import mean
 import threading
 from time import sleep
 from tkinter import *
-from tkinter.tix import ButtonBox
+#from tkinter.tix import ButtonBox
 from colour import Color
 import cv2
 
@@ -25,10 +26,12 @@ gradientSteps = [
 #######################################
 
 num_windows = 5
+window_size = 100
 image_file="heart.png"
 squares=3
 fps = 144
 durationGradient = 3
+min_smooth_distance = 1.4142135623730951
 
 
 #######################################
@@ -95,17 +98,50 @@ def move_coords(root, coords, start):
             x2 = xy2[0]
             y2 = xy2[1]
 
-            distance = abs(sqrt(pow((x2-x), 2) + pow((y2-y), 2)))
+            distance = sqrt(pow((x2-x), 2) + pow((y2-y), 2))
 
             print(f"{x=} {y=} || {x2=} {y2=} || {coords.index(xy)=} {start=} || {distance=}", end="", flush=True)
             print("\r", end="", flush=True)
 
-            root.geometry(f"200x200+{str(x-100)}+{str(y-100)}")
+            root.geometry(f"{window_size}x{window_size}+{str(x-100)}+{str(y-100)}")
+
 
             if start != 0 and coords.index(xy) == len(coords)-1:
                 start = 0
             
             sleep(0.001)
+
+
+def half_point(x1, y1, x2, y2):
+    half_x = mean((x1+x2)/2)
+    half_y = mean((y1+y2)/2)
+    return int(half_x), int(half_y)
+
+def smooth(coords, limit):
+    while True:
+        halfs_created = 0
+        for i in range(0, len(coords)):
+            xy1 = coords[i]
+            try:
+                xy2 = coords[i+1]
+            except:
+                break
+            
+            x1 = xy1[0]; y1 = xy1[1]; x2 = xy2[0]; y2 = xy2[1]
+
+            distance = sqrt(pow((x2-x1),2) + pow((y2-y1),2))
+
+            if distance > limit:
+                halfs_created =+ 1
+                print("Higher distance (%s) found", distance)
+                new_x, new_y = half_point(x1, y1, x2, y2)
+                print(f"{i=} ||{x1=}, {y1=} || {new_x=}, {new_y=} || {x2=}, {y2=}")
+                coords.insert(i+1, [new_x, new_y])
+            
+
+        if halfs_created == 0:
+            print("No more smoothing")
+            return coords
 
 
 #######################################
@@ -156,6 +192,7 @@ def mycallback():
 
     colorList = generateGradient(gradientSteps, fps, durationGradient)
     coords = generate_coords(image_file)
+    coords = smooth(coords, min_smooth_distance)
 
     print("Starting thread...")
     print(f"[DEBUG] {len(colorList)=}")
@@ -173,8 +210,9 @@ def mycallback():
 
 
 root = Tk()
-#root.overrideredirect(True)
-root.geometry("200x200")
+root.overrideredirect(True)
+root.attributes('-topmost', True)
+root.geometry(f"{window_size}x{window_size}")
 root["bg"] = gradientSteps[0]
 root.resizable(0,0)
 
