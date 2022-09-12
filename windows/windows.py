@@ -25,14 +25,12 @@ gradientSteps = [
 #
 #######################################
 
-num_windows = 5
-window_size = 100
-image_file="cat.png"
-squares=3
+num_windows = 50
+window_size = 15
+image_file="heart.png"
 fps = 144
-durationGradient = 3
+durationGradient = 1
 min_smooth_distance = 1.4142135623730951
-
 
 
 #######################################
@@ -41,13 +39,17 @@ min_smooth_distance = 1.4142135623730951
 #
 #######################################
 
-def createWindow(x:str, y:str):
+def createWindow(x:int, y:int):
     window = Tk()
     window.overrideredirect(True)
-    window.geometry(f"100x100+{x}+{y}")
+    window.geometry(f"{window_size}x{window_size}+{str(x)}+{str(y)}")
     window.resizable(0,0)
-    window.configure(bg="red")
+    window.configure(bg=gradientSteps[0])
     return window
+
+def launch_mainloop(root, win_id):
+    root.mainloop()
+    globals[win_id] = root
 
 
 
@@ -70,9 +72,9 @@ def generate_coords(filename):
     image = cv2.imread(filename)
     w, h, c = image.shape
     img_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    debug_show_image(img_gray)
+    #debug_show_image(img_gray)
     ret, im = cv2.threshold(img_gray, 1, 255, cv2.THRESH_BINARY)
-    debug_show_image(im)
+    #debug_show_image(im)
     contours, hierarchy  = cv2.findContours(im, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
     for cnt in contours:
@@ -87,41 +89,32 @@ def generate_coords(filename):
     return coords, size
 
 
-def move_coords(root, coords, start, image_size, screen_size):
-    diff = [int((screen_size[0]/2)-(image_size[0]/2)+(window_size/2)), int((screen_size[1]/2)-(image_size[1]/2)+(window_size/2))]
+def move_coords(window_list, coords, start_list):
     while True:
-        for xy in coords[start:]:
-            x = xy[0]+diff[0]
-            y = xy[1]+diff[1]
+        for cord_number in range(0, len(coords)):
+            for window_id in range(0, len(window_list)):
+                starting_point = start_list[window_id]
+                cord_pos = cord_number+starting_point
 
-            try:
-                index_2ndxy = coords.index(xy)+1
-                xy2 = coords[index_2ndxy]
-            except IndexError:
-                index_2ndxy = 0
-                xy2 = coords[index_2ndxy]
+                while cord_pos > len(coords)-1:
+                    cord_pos -= len(coords)-1
 
-            x2 = xy2[0]+diff[0]
-            y2 = xy2[1]+diff[1]
+                xy = coords[cord_pos]
+                x = xy[0]-window_size
+                y = xy[1]-window_size
 
-            distance = sqrt(pow((x2-x), 2) + pow((y2-y), 2))
-
-            print(f"{x=} {y=} || {x2=} {y2=} || {coords.index(xy)=} {start=} || {distance=}", end="", flush=True)
-            print("\r", end="", flush=True)
-
-            root.geometry(f"{window_size}x{window_size}+{str(x-100)}+{str(y-100)}")
-
-
-            if start != 0 and coords.index(xy) == len(coords)-1:
-                start = 0
-            
-            sleep(0.001)
+                #print(f"Moving {window_id=} to {x=}, {y=}")
+                
+                window_list[window_id].geometry(f"{window_size}x{window_size}+{str(x)}+{str(y)}")
+        sleep(0.001)
+                
+        
 
 
 def half_point(x1, y1, x2, y2):
-    half_x = mean((x1+x2)/2)
-    half_y = mean((y1+y2)/2)
-    return int(half_x), int(half_y)
+    half_x = round((x1+x2)/2)
+    half_y = round((y1+y2)/2)
+    return half_x, half_y
 
 
 def smooth(coords, limit):
@@ -149,6 +142,13 @@ def smooth(coords, limit):
         if halfs_created == 0:
             print("No more smoothing")
             return coords
+
+def center(coords, w_screen, h_screen, w_img, h_img):
+    diff = [int((w_screen/2)-(w_img/2)+(window_size/2)), int((h_screen/2)-(h_img/2)+(window_size/2))]
+    for i in range(0, len(coords)):
+        coords[i][0] += diff[0]
+        coords[i][1] += diff[1]
+    return coords
 
 
 
@@ -180,54 +180,83 @@ def generateGradient(mainColors, fps, duration):
                 print(color, end="", flush=True)
                 print("\r", end="", flush=True)
                 gradient.append(color)
-
     return gradient
         
 
-def colorChanger(colors, fps):
+def colorChanger(window_list, colors, fps):
     framerate = 1/fps
     print(f"Thread launched with {fps=}/{framerate=}")
     while True:
         for color in colors:
-            #print("Changing to", color)
-            root["bg"] = color
+            print("Current color:", color, end='', flush=True)
+            print('\r', end='', flush=True)
+            for window in window_list:
+                window["bg"] = color
             sleep(framerate)
         colors.reverse()
 
 
 def mycallback():
-    root.button["state"] = "disabled"
+    main_root.button["state"] = "disabled"
+
+    screen_size = [main_root.winfo_screenwidth(), main_root.winfo_screenheight()]
 
     colorList = generateGradient(gradientSteps, fps, durationGradient)
+
     coords, image_size = generate_coords(image_file)
     coords = smooth(coords, min_smooth_distance)
-    screen_size = [root.winfo_screenwidth(), root.winfo_screenheight()]
+    coords = center(coords, screen_size[0], screen_size[1], image_size[0], image_size[1])
+    
 
     print("Starting thread...")
     print(f"[DEBUG] {len(colorList)=}")
     print(f"[DEBUG] {len(coords)=}")
     print(f"[DEBUG] {screen_size=} {image_size=}")
 
-    coords_step = floor(len(coords)/(num_windows))
+    coords_step = round(len(coords)/num_windows)
     starting_index = []
-    for i in range(coords_step, len(coords), coords_step):
+    for i in range(0, len(coords), coords_step):
         print(f"[DEBUG] {i=}, {coords[i]=}")
         starting_index.append(i)
+    
+    print(starting_index)
 
-    threading.Thread(target=colorChanger, args=(colorList,fps), daemon=True).start()
-    threading.Thread(target=move_coords, args=(root, coords, starting_index[0], image_size, screen_size)).start()
+    threading.Thread(target=colorChanger, args=(child_windows, colorList, fps), daemon=True).start()
+    threading.Thread(target=move_coords, args=(child_windows, coords, starting_index), daemon=True).start()
+
+    for window_id in range(0, len(child_windows)):
+        print(f"Starting process on {window_id=}")
+        
     
 
 
 
-root = Tk()
-root.overrideredirect(True)
-root.attributes('-topmost', True)
-root.geometry(f"{window_size}x{window_size}")
-root["bg"] = gradientSteps[0]
-root.resizable(0,0)
+main_root = Tk()
+main_root.overrideredirect(True)
+#main_root.attributes('-topmost', True)
+main_root.geometry(f"200x200")
+main_root["bg"] = gradientSteps[0]
+main_root.resizable(0,0)
 
-root.button = Button(text="Start!", command=mycallback)
-root.button.pack()
+main_root.button = Button(text="Start!", command=mycallback)
+main_root.button.pack()
 
-root.mainloop()
+child_windows = []
+
+def create_child(root):
+    child = Toplevel(root)
+    child.geometry("0x0+0+0")
+    child.overrideredirect(True)
+    child.attributes('-topmost', True)
+    child.resizable(0,0)
+    return child
+    
+
+for i in range(0, num_windows):
+    print(f"Creating child ID {i}", end='', flush=True)
+    print('\r', end='', flush=True)
+    child_windows.append(create_child(main_root))
+
+print(f"{'='*15}Ready!{'='*15}")
+
+main_root.mainloop()
