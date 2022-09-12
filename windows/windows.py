@@ -1,9 +1,7 @@
-from math import sqrt, floor
-from numpy import mean
+from math import sqrt
 import threading
 from time import sleep
 from tkinter import *
-#from tkinter.tix import ButtonBox
 from colour import Color
 import cv2
 
@@ -21,7 +19,7 @@ gradientSteps = [
 
 #######################################
 #
-# Default settings
+# Settings
 #
 #######################################
 
