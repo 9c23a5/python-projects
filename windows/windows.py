@@ -23,7 +23,7 @@ gradientSteps = [
 #
 #######################################
 
-num_windows = 50
+num_windows = 55
 window_size = 15
 image_file="heart.png"
 fps = 144
@@ -48,6 +48,9 @@ def createWindow(x:int, y:int):
 def launch_mainloop(root, win_id):
     root.mainloop()
     globals[win_id] = root
+
+def killAllThreads(*args, **kwargs):
+    exit(0)
 
 
 
@@ -88,6 +91,7 @@ def generate_coords(filename):
 
 
 def move_coords(window_list, coords, start_list):
+    print(f"move_coords launched with {len(coords)} points!")
     while True:
         for cord_number in range(0, len(coords)):
             for window_id in range(0, len(window_list)):
@@ -116,6 +120,7 @@ def half_point(x1, y1, x2, y2):
 
 
 def smooth(coords, limit):
+    total_points = 0
     while True:
         halfs_created = 0
         for i in range(0, len(coords)):
@@ -132,14 +137,17 @@ def smooth(coords, limit):
 
             if distance > limit:
                 halfs_created =+ 1
+                total_points =+ 1
                 new_x, new_y = half_point(x1, y1, x2, y2)
                 #print(f"{i=} ||{x1=}, {y1=} || {new_x=}, {new_y=} || {x2=}, {y2=}")
                 coords.insert(i+1, [new_x, new_y])
             
 
         if halfs_created == 0:
-            print("No more smoothing")
+            print(f"[smooth] Points created while smoothing: {total_points}")
+            print("[smooth] No more smoothing needed...")
             return coords
+
 
 def center(coords, w_screen, h_screen, w_img, h_img):
     diff = [int((w_screen/2)-(w_img/2)+(window_size/2)), int((h_screen/2)-(h_img/2)+(window_size/2))]
@@ -167,12 +175,12 @@ def generateGradient(mainColors, fps, duration):
     steps = round(( ( duration / framerate) + exclude ) / numGradients)
 
 
-    print(f"{steps=}")
+    print(f"[generateGradient] Colors per gradient: {steps}")
 
     for step in range(0, numGradients):
         currentColor = Color(mainColors[step])
         nextColor = Color(mainColors[step+1])
-        print(f"Appending gradient between {currentColor} and {nextColor}")
+        print(f"[generateGradient] Appending gradient between {currentColor} and {nextColor}")
         for color in currentColor.range_to(nextColor, steps):
             if color not in gradient:
                 print(color, end="", flush=True)
@@ -182,22 +190,21 @@ def generateGradient(mainColors, fps, duration):
         
 
 def colorChanger(window_list, colors, fps):
-    framerate = 1/fps
-    print(f"Thread launched with {fps=}/{framerate=}")
+    frametime = 1/fps
+    print(f"colorChanger launched with {fps=}/{frametime=}\n")
     while True:
         for color in colors:
             print("Current color:", color, end='', flush=True)
             print('\r', end='', flush=True)
             for window in window_list:
                 window["bg"] = color
-            sleep(framerate)
+            sleep(frametime)
         colors.reverse()
 
 
 def mycallback():
-    main_root.button["state"] = "disabled"
-
-    screen_size = [main_root.winfo_screenwidth(), main_root.winfo_screenheight()]
+    global num_windows
+    main_root.withdraw() 
 
     colorList = generateGradient(gradientSteps, fps, durationGradient)
 
@@ -206,7 +213,7 @@ def mycallback():
     coords = center(coords, screen_size[0], screen_size[1], image_size[0], image_size[1])
     
 
-    print("Starting thread...")
+    print("Launching!")
     print(f"[DEBUG] {len(colorList)=}")
     print(f"[DEBUG] {len(coords)=}")
     print(f"[DEBUG] {screen_size=} {image_size=}")
@@ -214,25 +221,42 @@ def mycallback():
     coords_step = round(len(coords)/num_windows)
     starting_index = []
     for i in range(0, len(coords), coords_step):
-        print(f"[DEBUG] {i=}, {coords[i]=}")
+        #print(f"[DEBUG] {i=}, {coords[i]=}")
         starting_index.append(i)
-    
-    print(starting_index)
 
-    threading.Thread(target=colorChanger, args=(child_windows, colorList, fps), daemon=True).start()
-    threading.Thread(target=move_coords, args=(child_windows, coords, starting_index), daemon=True).start()
+    print(f"[DEBUG] {len(starting_index)=} for {num_windows=}")
+    
+    if len(starting_index) == num_windows-1:
+        #print("[DEBUG] Added one more starting_index")
+        #starting_index.append(len(coords)-1)
+        print("[DEBUG] Removing excess window...")
+        #num_windows = num_windows - 1
+        num_windows = num_windows - 1
+        child_windows.remove(child_windows[num_windows])
 
     for window_id in range(0, len(child_windows)):
-        print(f"Starting process on {window_id=}")
-        
+        print(f"Starting process on {window_id=}", end='', flush=True)
+        print('\r', end='', flush=True)
+        child_windows[window_id].deiconify()
+    print(f"{'='*15} {num_windows} windows created! {'='*15}")
+    print("\nPress Q to quit\n")
     
+    threading.Thread(target=move_coords, args=(child_windows, coords, starting_index), daemon=True).start()
+    threading.Thread(target=colorChanger, args=(child_windows, colorList, fps), daemon=True).start()
 
 
 
 main_root = Tk()
+
+screen_size = [main_root.winfo_screenwidth(), main_root.winfo_screenheight()]
+
 main_root.overrideredirect(True)
-#main_root.attributes('-topmost', True)
-main_root.geometry(f"200x200")
+main_root.attributes('-topmost', True)
+
+wide_mid = int((screen_size[0]/2)-100)
+height_mid = int((screen_size[1]/2)-100)
+
+main_root.geometry(f"200x200+{wide_mid}+{height_mid}")
 main_root["bg"] = gradientSteps[0]
 main_root.resizable(0,0)
 
@@ -247,6 +271,9 @@ def create_child(root):
     child.overrideredirect(True)
     child.attributes('-topmost', True)
     child.resizable(0,0)
+    child.withdraw()
+    child.bind('<KeyPress-Q>', killAllThreads)
+    child.bind('<KeyPress-q>', killAllThreads)
     return child
     
 
@@ -255,6 +282,6 @@ for i in range(0, num_windows):
     print('\r', end='', flush=True)
     child_windows.append(create_child(main_root))
 
-print(f"{'='*15}Ready!{'='*15}")
+print(f"{'='*15} Ready! {'='*15}")
 
 main_root.mainloop()
