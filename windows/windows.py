@@ -1,10 +1,14 @@
 from math import sqrt
+from operator import contains
 import threading
 from time import sleep
 from tkinter import *
+from tkinter import filedialog
+from tkinter.filedialog import FileDialog
+from turtle import bgcolor
+from winsound import SND_ASYNC
 from colour import Color
 import cv2
-
 
 gradientSteps = [
     # https://i.imgur.com/Gy9fUR8.png
@@ -23,12 +27,47 @@ gradientSteps = [
 #
 #######################################
 
-num_windows = 55
-window_size = 15
-image_file="heart.png"
-fps = 144
-durationGradient = 1
+prefs = {
+  # "variable_name" : [Value, FriendlyName]
+    "num_windows" : [25, "Number of windows"],
+    "window_size" : [20, "Window size (px)"],
+    "image_file" : ['<file>', "Filename"],
+    "fps" : [144, "Frames per second"],
+    "durationGradient" : [1, "Gradient duration (s)"]
+}
+
 min_smooth_distance = 1.4142135623730951
+
+def update_prefs():
+    index = 0
+    for setting in prefs:
+        if setting == "image_file":
+            pass
+        elif type(prefs[setting][0]) == int:
+            prefs[setting][0] = int(all_entries[index].get())
+        elif type(prefs[setting][0]) == str:
+            prefs[setting][0] = all_entries[index].get()
+        index += 1
+    return
+
+def select_file():
+    cwd_index = __file__.rfind('\\')
+    cwd = __file__[:cwd_index]
+
+    filename = filedialog.askopenfilename(
+        title='Choose a file',
+        initialdir=cwd,
+        filetypes=(('PNG Files', '*.png'),))
+
+    if '.png' in filename:
+        index = filename.rfind('/')
+        short_filename = filename[index+1:]
+    else:
+        filename = '<file>'
+        short_filename = "Open a file"
+
+    filechooser_button['text'] = short_filename
+    prefs["image_file"][0] = filename
 
 
 #######################################
@@ -40,19 +79,13 @@ min_smooth_distance = 1.4142135623730951
 def createWindow(x:int, y:int):
     window = Tk()
     window.overrideredirect(True)
-    window.geometry(f"{window_size}x{window_size}+{str(x)}+{str(y)}")
+    window.geometry(f"{prefs['window_size'][0]}x{prefs['window_size'][0]}+{str(x)}+{str(y)}")
     window.resizable(0,0)
     window.configure(bg=gradientSteps[0])
     return window
 
-def launch_mainloop(root, win_id):
-    root.mainloop()
-    globals[win_id] = root
-
 def killAllThreads(*args, **kwargs):
-    exit(0)
-
-
+    exit(0) # ha ha
 
 #######################################
 #
@@ -102,12 +135,12 @@ def move_coords(window_list, coords, start_list):
                     cord_pos -= len(coords)-1
 
                 xy = coords[cord_pos]
-                x = xy[0]-window_size
-                y = xy[1]-window_size
+                x = xy[0]-prefs['window_size'][0]
+                y = xy[1]-prefs['window_size'][0]
 
                 #print(f"Moving {window_id=} to {x=}, {y=}")
                 
-                window_list[window_id].geometry(f"{window_size}x{window_size}+{str(x)}+{str(y)}")
+                window_list[window_id].geometry(f"{prefs['window_size'][0]}x{prefs['window_size'][0]}+{str(x)}+{str(y)}")
         sleep(0.001)
                 
         
@@ -150,7 +183,7 @@ def smooth(coords, limit):
 
 
 def center(coords, w_screen, h_screen, w_img, h_img):
-    diff = [int((w_screen/2)-(w_img/2)+(window_size/2)), int((h_screen/2)-(h_img/2)+(window_size/2))]
+    diff = [int((w_screen/2)-(w_img/2)+(prefs['window_size'][0]/2)), int((h_screen/2)-(h_img/2)+(prefs['window_size'][0]/2))]
     for i in range(0, len(coords)):
         coords[i][0] += diff[0]
         coords[i][1] += diff[1]
@@ -203,12 +236,36 @@ def colorChanger(window_list, colors, fps):
 
 
 def mycallback():
-    global num_windows
-    main_root.withdraw() 
+    global prefs
 
-    colorList = generateGradient(gradientSteps, fps, durationGradient)
+    update_prefs()
 
-    coords, image_size = generate_coords(image_file)
+    if prefs["image_file"][0] == '<file>':
+        print("File not selected")
+        return
+
+    def create_child(root):
+        child = Toplevel(root)
+        child.geometry("0x0+0+0")
+        child.overrideredirect(True)
+        child.attributes('-topmost', True)
+        child.resizable(0,0)
+        child.withdraw()
+        # child.bind('<KeyPress-Q>', killAllThreads)
+        # child.bind('<KeyPress-q>', killAllThreads)
+        return child
+
+    main_root.withdraw()
+
+    child_windows = []
+    for i in range(0, prefs["num_windows"][0]):
+        print(f"Creating child ID {i}", end='', flush=True)
+        print('\r', end='', flush=True)
+        child_windows.append(create_child(main_root))
+
+    colorList = generateGradient(gradientSteps, prefs['fps'][0], prefs['durationGradient'][0])
+
+    coords, image_size = generate_coords(prefs['image_file'][0])
     coords = smooth(coords, min_smooth_distance)
     coords = center(coords, screen_size[0], screen_size[1], image_size[0], image_size[1])
     
@@ -218,69 +275,89 @@ def mycallback():
     print(f"[DEBUG] {len(coords)=}")
     print(f"[DEBUG] {screen_size=} {image_size=}")
 
-    coords_step = round(len(coords)/num_windows)
+    print(f"{prefs['num_windows'][0]=}")
+    coords_step = round(len(coords)/prefs['num_windows'][0])
     starting_index = []
     for i in range(0, len(coords), coords_step):
         #print(f"[DEBUG] {i=}, {coords[i]=}")
         starting_index.append(i)
 
-    print(f"[DEBUG] {len(starting_index)=} for {num_windows=}")
+    print(f"[DEBUG] {len(starting_index)=} for {prefs['num_windows'][0]=}")
     
-    if len(starting_index) == num_windows-1:
+    if len(starting_index) == prefs['num_windows'][0]-1:
         #print("[DEBUG] Added one more starting_index")
         #starting_index.append(len(coords)-1)
         print("[DEBUG] Removing excess window...")
         #num_windows = num_windows - 1
-        num_windows = num_windows - 1
-        child_windows.remove(child_windows[num_windows])
+        prefs['num_windows'][0] = prefs['num_windows'][0] - 1
+        child_windows.remove(child_windows[prefs['num_windows'][0]])
 
     for window_id in range(0, len(child_windows)):
         print(f"Starting process on {window_id=}", end='', flush=True)
         print('\r', end='', flush=True)
         child_windows[window_id].deiconify()
-    print(f"{'='*15} {num_windows} windows created! {'='*15}")
-    print("\nPress Q to quit\n")
+    print(f"{'='*15} {prefs['num_windows'][0]} windows created! {'='*15}")
+    print("\nPress Ctrl+C to quit\n")
     
     threading.Thread(target=move_coords, args=(child_windows, coords, starting_index), daemon=True).start()
-    threading.Thread(target=colorChanger, args=(child_windows, colorList, fps), daemon=True).start()
+    threading.Thread(target=colorChanger, args=(child_windows, colorList, prefs['fps'][0]), daemon=True).start()
 
 
 
 main_root = Tk()
+
+
+main_sz = 400
+main_window_padding = 35
+inner_pad = 10
+button_height = 26
+main_bg = '#2b2b2b'
+widget_bg = '#353535'
 
 screen_size = [main_root.winfo_screenwidth(), main_root.winfo_screenheight()]
 
 main_root.overrideredirect(True)
 main_root.attributes('-topmost', True)
 
-wide_mid = int((screen_size[0]/2)-100)
-height_mid = int((screen_size[1]/2)-100)
+wide_mid = int((screen_size[0]/2)-main_sz/2)
+height_mid = int((screen_size[1]/2)-main_sz/2)
 
-main_root.geometry(f"200x200+{wide_mid}+{height_mid}")
-main_root["bg"] = gradientSteps[0]
+main_root.geometry(f"{main_sz}x{main_sz}+{wide_mid}+{height_mid}")
+main_root["bg"] = main_bg
 main_root.resizable(0,0)
 
-main_root.button = Button(text="Start!", command=mycallback)
-main_root.button.pack()
+next_y = main_window_padding
+all_entries = []
 
-child_windows = []
+for i in prefs:
 
-def create_child(root):
-    child = Toplevel(root)
-    child.geometry("0x0+0+0")
-    child.overrideredirect(True)
-    child.attributes('-topmost', True)
-    child.resizable(0,0)
-    child.withdraw()
-    child.bind('<KeyPress-Q>', killAllThreads)
-    child.bind('<KeyPress-q>', killAllThreads)
-    return child
-    
+    my_label = Label(main_root, text=prefs[i][1], bg=main_bg, fg='white')
+    my_label.place(x=0, y=0)
+    main_root.update()
+    my_label.place(x=main_sz/2-inner_pad-my_label.winfo_width(), y=next_y)
 
-for i in range(0, num_windows):
-    print(f"Creating child ID {i}", end='', flush=True)
-    print('\r', end='', flush=True)
-    child_windows.append(create_child(main_root))
+    next_height = my_label.winfo_height()
+
+    if prefs[i][0] == '<file>':
+        my_entry = Button(main_root, text="Open a file", command=select_file, bg=widget_bg, fg='white')
+        filechooser_button = my_entry
+        my_entry.place(x=main_sz/2+inner_pad, y=next_y)
+        main_root.update(); next_height = my_entry.winfo_height()
+        
+    else:
+        my_entry = Entry(main_root, bg=widget_bg, fg='white')
+        my_entry.insert(0, prefs[i][0])
+        my_entry.place(width=my_label.winfo_width())
+        my_entry.place(x=main_sz/2+inner_pad, y=next_y)
+    all_entries.append(my_entry)
+
+    next_y += next_height + inner_pad
+
+# Button
+Button_start = Button(text="Start!", command=mycallback, bg=widget_bg, fg='white') # w=38
+Button_start.place(x=0, y=0)
+main_root.update()
+Button_start.place(x=main_sz/2 - Button_start.winfo_width() / 2, y=main_sz-main_window_padding-button_height)
 
 print(f"{'='*15} Ready! {'='*15}")
 
