@@ -1,12 +1,8 @@
 from math import sqrt
-from operator import contains
 import threading
 from time import sleep
 from tkinter import *
 from tkinter import filedialog
-from tkinter.filedialog import FileDialog
-from turtle import bgcolor
-from winsound import SND_ASYNC
 from colour import Color
 import cv2
 
