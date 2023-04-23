@@ -51,10 +51,9 @@ class TodoList:
         return len(self.list)+1
 
     def add(self, title, completed=False):
-        new_todo_id = self.get_next_id()
-        new_todo = Todo(new_todo_id, title, completed)
+        new_todo = Todo(self.get_next_id(), title, completed)
         self.list.append(new_todo)
-        return self[new_todo_id]
+        return new_todo
 
     def __getitem__(self, id):
         # We start with ID 1, so -1 to this
